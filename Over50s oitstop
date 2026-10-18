@@ -1,0 +1,102 @@
+# app.py
+import streamlit as st
+import pandas as pd
+import fitz
+from pathlib import Path
+from typing import Dict, Any
+
+# ------------------------------------------------------------------
+# 1️⃣  UI – file upload / copy‑paste
+st.title("Doctor‑Facing Clinical Decision‑Making & Diagnostic‑Therapeutic‑Optimization Report")
+
+# 1a️⃣  File uploader
+uploaded_file = st.file_uploader("Upload a case (PDF / TXT)", type=["pdf","txt"])
+case_text: str | None = None
+
+# 1b️⃣  Copy‑paste text area
+case_text = st.text_area("Or paste the case text here", height=200)
+
+# 1c️⃣  Button to run the parser
+if st.button("Generate Report"):
+    # ------------------------------------------------------------------
+    # 2️⃣  Data pipeline ----------------------------------------------------
+    # 2a️⃣  Read the case
+    if uploaded_file:
+        # If PDF – read the first page
+        if uploaded_file.type == "application/pdf":
+            doc = fitz.open(uploaded_file)
+            case_text = doc.load_page(0).get_text()
+        else:
+            # Assume txt – just read
+            case_text = uploaded_file.getvalue().decode("utf-8")
+
+    # 2b️⃣  Parse the case (very light – you can replace this with a proper NLP pipeline)
+    def parse_case(text: str) -> Dict[str, Any]:
+        """Simple parser that extracts the key sections and returns a dict."""
+        # Split on section headings – this is a very naïve split that works for the sample texts
+        sections = {}
+        for h in ["0.", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.", "10."]:
+            if h in text:
+                parts = text.split(h, 1)
+                if len(parts) > 1:
+                    sections[h] = parts[1].strip()
+        return sections
+
+    parsed = parse_case(case_text)
+
+    # 2c️⃣  Build the report string (you can inject a template engine if you wish)
+    report = f"""
+## 0️⃣ Patient Snapshot
+{parsed.get("0.", "")}
+
+## 1️⃣  Abnormal Homeostasis – “All‑the‑body” Processes
+{parsed.get("1.", "")}
+
+## 2️⃣  Abnormal Pathophysiology – Disease Drivers
+{parsed.get("2.", "")}
+
+## 3️⃣  Metabolic State – Abnormal Metabolism
+{parsed.get("3.", "")}
+
+## 4️⃣  Current Clinical/Medical State
+{parsed.get("4.", "")}
+
+## 5️⃣  Current Medications – Route, Dose, Frequency
+{parsed.get("5.", "")}
+
+## 6️⃣  Abnormal Parameters – Blood & Imaging
+{parsed.get("6.", "")}
+
+## 7️⃣  Back to Baseline – The Homeostatic Reset
+{parsed.get("7.", "")}
+
+## 8️⃣  Lifestyle Modifications – Obesity, Metabolic Syndrome
+{parsed.get("8.", "")}
+
+## 9️⃣  Sexual Health – Erectile… (the rest of your report)
+{parsed.get("9.", "")}
+
+## 🔟  Suggestions, Recommendations & Action Plan – “Reckon & Reset”
+{parsed.get("10.", "")}
+"""
+
+    # ------------------------------------------------------------------
+    # 3️⃣  Show the report
+    st.markdown(report, unsafe_allow_html=True)
+
+    # ------------------------------------------------------------------
+    # 4️⃣  Chat section – simple LLM chat
+    st.subheader("Chat with the report")
+    user_query = st.text_input("Ask about the report…")
+    if st.button("Ask"):
+        # you can plug in OpenAI / GPT‑3.5 or LangChain here
+        # For demo, we just echo the query
+        st.write(f"**You asked:** {user_query}")
+        # TODO: replace with real LLM call
+        st.write(f"**Answer:** (demo) – …")
+
+    # ------------------------------------------------------------------
+    # 5️⃣  Action button
+    st.subheader("Next‑Step")
+    if st.button("Escalate / Admit / Follow‑up"):
+        st.write("✅  Next‑step logged – you can now edit the EMR and add a note.")
